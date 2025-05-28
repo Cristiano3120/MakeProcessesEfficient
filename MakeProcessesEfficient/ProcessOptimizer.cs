@@ -34,7 +34,7 @@ namespace MakeProcessesEfficient
         {
             Console.WriteLine("\nOptimizing processes...");
 
-            JsonElement processesJson = ProcessesJsonHandler.ReadJson();
+            JsonElement processesJson = ProcessesJsonHandler.GetProcessesJson();
             JsonProperty[] jsonProperties = [.. processesJson.EnumerateObject()];
 
             if (jsonProperties.Length == 0)

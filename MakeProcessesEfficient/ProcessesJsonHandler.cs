@@ -5,12 +5,7 @@ namespace MakeProcessesEfficient
 {
     internal static class ProcessesJsonHandler
     {
-        private static string ProcessesJsonPath => GetDynamicPath("Processes.json");
-        private static JsonSerializerOptions JsonSerializerOptions => new()
-        {
-            WriteIndented = true,
-        };
-
+        private static string ProcessesJsonPath => JsonHelper.GetDynamicPath("Processes.json");
         internal static void AddProcessToJsonFile()
         {
             ProcessTweak? processTweak = GetSettings();
@@ -28,14 +23,13 @@ namespace MakeProcessesEfficient
             if (processName == string.Empty)
                 return;
 
-            JsonElement jsonElement = ReadJson();
+            JsonElement jsonElement = JsonHelper.ReadJson(ProcessesJsonPath);
             Dictionary<string, JsonElement> jsonObjectDict = jsonElement.EnumerateObject()
                 .ToDictionary(p => p.Name, p => p.Value);
 
             jsonObjectDict.Remove(processName);
-            string jsonStr = JsonSerializer.Serialize(jsonObjectDict, JsonSerializerOptions);
 
-            File.WriteAllText(ProcessesJsonPath, jsonStr);
+            JsonHelper.WriteToJson(ProcessesJsonPath, jsonObjectDict);
             Console.WriteLine($"Sucessfully removed {processName}\n");
         }
 
@@ -47,7 +41,7 @@ namespace MakeProcessesEfficient
             if (processName == string.Empty)
                 return;
 
-            JsonElement jsonElement = ReadJson();
+            JsonElement jsonElement = JsonHelper.ReadJson(ProcessesJsonPath);
 
             Dictionary<string, JsonElement> jsonObjectDict = jsonElement.EnumerateObject()
                 .ToDictionary(p => p.Name, p => p.Value);
@@ -61,7 +55,7 @@ namespace MakeProcessesEfficient
             }
 
             Console.Write("Do you want to enable efficiency mode? (y/n): ");
-            ConsoleKeyInfo consoleKeyInfo = Console.ReadKey(true);
+            ConsoleKeyInfo consoleKeyInfo = Console.ReadKey();
             if (consoleKeyInfo.Key != ConsoleKey.Y && consoleKeyInfo.Key != ConsoleKey.N)
             {
                 Console.WriteLine("\nInvalid input. Please enter y or n\n");
@@ -74,15 +68,13 @@ namespace MakeProcessesEfficient
                 EfficiencyMode = consoleKeyInfo.Key == ConsoleKey.Y
             });
 
-            string updatedJson = JsonSerializer.Serialize(jsonObjectDict, JsonSerializerOptions);
-            File.WriteAllText(ProcessesJsonPath, updatedJson);
-
+            JsonHelper.WriteToJson(ProcessesJsonPath, jsonObjectDict);
             Console.WriteLine($"\nUpdated {processName} to MemoryPriority: {memoryPriority} and EfficiencyMode: {consoleKeyInfo.Key == ConsoleKey.Y}\n");
         }
 
         internal static JsonProperty[] OutputJsonFile()
         {
-            JsonElement jsonElement = ReadJson();
+            JsonElement jsonElement = JsonHelper.ReadJson(ProcessesJsonPath);
 
             JsonProperty[] jsonObject = [.. jsonElement.EnumerateObject()];
             if (jsonObject.Length == 0)
@@ -106,12 +98,9 @@ namespace MakeProcessesEfficient
             return jsonObject;
         }
 
-        internal static JsonElement ReadJson()
-        {
-            CheckIfFileExists();  
-            return JsonDocument.Parse(File.ReadAllText(ProcessesJsonPath)).RootElement;
-        }
-
+        internal static JsonElement GetProcessesJson()
+            => JsonHelper.ReadJson(ProcessesJsonPath);
+        
         #region DirectJsonHelperMethods
 
         static ProcessTweak? GetSettings()
@@ -160,7 +149,7 @@ namespace MakeProcessesEfficient
                 EfficiencyMode = processTweak.PowerThrottling
             };
 
-            JsonElement jsonElement = ReadJson();
+            JsonElement jsonElement = JsonHelper.ReadJson(ProcessesJsonPath);
             Dictionary<string, JsonElement> jsonObject = jsonElement.EnumerateObject()
                 .ToDictionary(p => p.Name, p => p.Value);
 
@@ -170,10 +159,8 @@ namespace MakeProcessesEfficient
             }
 
             jsonObject[processTweak.ProcessName] = JsonSerializer.SerializeToElement(processSettings);
-            string updatedJson = JsonSerializer.Serialize(jsonObject, JsonSerializerOptions);
 
-            File.WriteAllText(ProcessesJsonPath, updatedJson);
-
+            JsonHelper.WriteToJson(ProcessesJsonPath, jsonObject);
             Console.WriteLine($"Process {processTweak.ProcessName} added to JSON file with MemoryPriority: {processTweak.MemoryPriority} and EfficiencyMode: {processTweak.PowerThrottling}\n");
         }
 
@@ -191,39 +178,6 @@ namespace MakeProcessesEfficient
                 return string.Empty;
             }
         }
-        #endregion
-
-        #region IndirectJsonHelperMethods
-
-        static string GetDynamicPath(string relativePath)
-        {
-            string projectBasePath = AppDomain.CurrentDomain.BaseDirectory;
-
-            int binIndex = projectBasePath.IndexOf(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
-
-            if (binIndex != -1)
-            {
-                projectBasePath = projectBasePath[..binIndex];
-            }
-
-            return Path.Combine(projectBasePath, relativePath);
-        }
-
-        static bool CheckIfFileExists()
-        {
-            if (!File.Exists(ProcessesJsonPath))
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("\n[ERROR]: JSON file does not exist. Creating a new one...\n");
-                Console.ResetColor();
-
-                File.WriteAllText(ProcessesJsonPath, "{}");
-                return false;
-            }
-
-            return true;
-        }
-
         #endregion
     }
 }

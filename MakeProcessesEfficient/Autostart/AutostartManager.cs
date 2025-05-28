@@ -1,10 +1,22 @@
 ﻿using Microsoft.Win32.TaskScheduler;
+using System.Text.Json;
 
 namespace MakeProcessesEfficient.Autostart
 {
     internal static class AutostartManager
     {
         private const string _autostartTaskName = "MakeProcessesEfficient";
+        private static string PathToAutostartOptions => JsonHelper.GetDynamicPath(@"Autostart/AutostartOptions.json");
+        private static AutostartOptions DefaultAutostartOptions => new()
+        {
+            AutostartActive = true,
+            LoginDelay = TimeSpan.FromMinutes(2),
+            RepetitionDelay = TimeSpan.FromMinutes(10),
+            StopAfterDelay = TimeSpan.Zero,
+        };
+        private static AutostartOptions CurrentAutostartOptions
+            => JsonSerializer.Deserialize<AutostartOptions>(File.ReadAllText(PathToAutostartOptions));
+
         internal static void ShowAutostartOptions()
         {
             Console.WriteLine("\n1. Activate autostart(with default options)");
@@ -13,7 +25,7 @@ namespace MakeProcessesEfficient.Autostart
             Console.WriteLine("4. Show default autostart options");
             Console.WriteLine("5. Show current autostart state/options");
 
-            ConsoleKey consoleKey = Console.ReadKey().Key;
+            ConsoleKey consoleKey = Console.ReadKey(true).Key;
             HandleSelectedOption(consoleKey);
         }
 
@@ -31,19 +43,42 @@ namespace MakeProcessesEfficient.Autostart
                     DeactivateAutostart();
                     break;
                 case ConsoleKey.D4:
-                    throw new NotImplementedException();
+                    DisplayAutostartSettings(DefaultAutostartOptions); 
+                    break;
                 case ConsoleKey.D5:
-                    throw new NotImplementedException();
+                    DisplayAutostartSettings(CurrentAutostartOptions);
+                    break;
                 default:
                     Console.WriteLine("\nInvalid option\n");
                     break;
             }
         }
 
+        static void DisplayAutostartSettings(AutostartOptions autostartOptions)
+        {
+            if (!autostartOptions.AutostartActive)
+            {
+                Console.WriteLine("\nAutostart disabled\n");
+                return;
+            }
+
+            Console.WriteLine($"\nStarts {autostartOptions.LoginDelay.TotalMinutes}min after login");
+            Console.WriteLine($"Repeats every {autostartOptions.RepetitionDelay.TotalMinutes}min after that");
+
+            if (autostartOptions.StopAfterDelay == TimeSpan.Zero)
+            {
+                Console.WriteLine($"Will never stop repeating\n");
+            }
+            else
+            {
+                Console.WriteLine($"Stops repeating after the pc ran for {autostartOptions.StopAfterDelay.TotalMinutes}min\n");
+            }
+        }
+
         #region ChangeAuotstartBehaviour
         static void ActivateAutostart()
         {
-            Console.WriteLine("\n Activated autostart\n");
+            Console.WriteLine("\nActivated autostart(strongly recommended this app will close itself anyway after a few secs)\n");
             using (TaskService ts = new())
             {
                 Microsoft.Win32.TaskScheduler.Task? task = ts.GetTask(_autostartTaskName);
@@ -54,28 +89,86 @@ namespace MakeProcessesEfficient.Autostart
                 }
 
                 TaskDefinition td = ts.NewTask();
-                td.RegistrationInfo.Description = "Starts 2 mins after login and repeats every 10 min after that";
+                td.RegistrationInfo.Description = "Performace optimizer. Will automatically close a few secs after startup";
 
+                AutostartOptions autostartOptions = DefaultAutostartOptions;
                 var trigger = new LogonTrigger
                 {
-                    Delay = TimeSpan.FromMinutes(2),
-                    Repetition = new RepetitionPattern(TimeSpan.FromMinutes(10), TimeSpan.FromDays(1))
+                    Delay = autostartOptions.LoginDelay,
+                    Repetition = new RepetitionPattern(autostartOptions.RepetitionDelay, autostartOptions.StopAfterDelay)
                 };
                 td.Triggers.Add(trigger);
 
                 string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
                 td.Actions.Add(new ExecAction(exePath, "Autostart", null));
                 ts.RootFolder.RegisterTaskDefinition(_autostartTaskName, td);
+
+                JsonHelper.WriteToJson(PathToAutostartOptions, autostartOptions);
             }
         }
 
         static void ConfigureAutostart()
         {
+            Console.Write("How many minutes should be the start of this be delayed after windows login(0- 720): ");
+            string delayInput = Console.ReadLine()?.Trim() ?? string.Empty;
+            if (!int.TryParse(delayInput, out int startupDelay) || startupDelay < 0 || startupDelay > 720)
+            {
+                Console.WriteLine("\nInput invalid\n");
+                return;
+            }
 
+            Console.Write("How many minutes should be paused till this process runs again(0- 720): ");
+            string repetitionDelayInput = Console.ReadLine()?.Trim() ?? string.Empty;
+            if (!int.TryParse(repetitionDelayInput, out int repetitionDelay) || repetitionDelay < 0 || repetitionDelay > 720)
+            {
+                Console.WriteLine("\nInput invalid\n");
+                return;
+            }
+
+            Console.Write("How many minutes should be paused till the pc needs to restart for this to run again(0(never stops)- 4320): ");
+            string stopAfterDelayInput = Console.ReadLine()?.Trim() ?? string.Empty;
+            if (!int.TryParse(stopAfterDelayInput, out int stopAfterDelay) || repetitionDelay < 0 || repetitionDelay > 4320)
+            {
+                Console.WriteLine("\nInput invalid\n");
+                return;
+            }
+
+            AutostartOptions autostartOptions = new()
+            {
+                AutostartActive = true,
+                LoginDelay = TimeSpan.FromMinutes(startupDelay),
+                RepetitionDelay = TimeSpan.FromMinutes(repetitionDelay),
+                StopAfterDelay = TimeSpan.FromMinutes(stopAfterDelay),
+            };
+
+            UpdateAutostart(autostartOptions);
+        }
+
+        static void UpdateAutostart(AutostartOptions autostartOptions)
+        {
+            Console.WriteLine("\nUpdated autostart options\n");
+            using (TaskService ts = new())
+            {
+                Microsoft.Win32.TaskScheduler.Task? task = ts.GetTask(_autostartTaskName);
+                task.Enabled = true;
+
+                var loginTrigger = new LogonTrigger
+                {
+                    Delay = autostartOptions.LoginDelay,
+                    Repetition = new RepetitionPattern(autostartOptions.RepetitionDelay, autostartOptions.StopAfterDelay)
+                };
+
+                task.Definition.Triggers.Clear();
+                task.Definition.Triggers.Add(loginTrigger);
+
+                ts.RootFolder.RegisterTaskDefinition(_autostartTaskName, task.Definition);
+                JsonHelper.WriteToJson(PathToAutostartOptions, autostartOptions);
+            }
         }
 
         static void DeactivateAutostart()
         {
+            Console.WriteLine("\nDeactivated autostart\n");
             using (TaskService ts = new())
             {
                 Microsoft.Win32.TaskScheduler.Task? task = ts.GetTask(_autostartTaskName);
