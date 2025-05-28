@@ -1,0 +1,10 @@
+{
+  "Discord": {
+    "MemoryPriority": 3,
+    "EfficiencyMode": true
+  },
+  "Spotify": {
+    "MemoryPriority": 2,
+    "EfficiencyMode": true
+  }
+}
