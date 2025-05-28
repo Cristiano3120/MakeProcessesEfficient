@@ -1,3 +1,6 @@
 {
-  
+  "AutostartActive": true,
+  "LoginDelay": "00:02:00",
+  "RepetitionDelay": "00:10:00",
+  "StopAfterDelay": "00:00:00"
 }

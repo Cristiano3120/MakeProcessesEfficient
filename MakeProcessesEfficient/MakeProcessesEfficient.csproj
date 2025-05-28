@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+	<EnableComHosting>true</EnableComHosting>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -11,6 +12,15 @@
 
   <ItemGroup>
     <PackageReference Include="TaskScheduler" Version="2.12.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Autostart\AutostartOptions.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Processes.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

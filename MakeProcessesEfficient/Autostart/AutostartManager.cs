@@ -1,4 +1,5 @@
 ﻿using Microsoft.Win32.TaskScheduler;
+using System.Text;
 using System.Text.Json;
 
 namespace MakeProcessesEfficient.Autostart
@@ -98,9 +99,18 @@ namespace MakeProcessesEfficient.Autostart
                     Repetition = new RepetitionPattern(autostartOptions.RepetitionDelay, autostartOptions.StopAfterDelay)
                 };
                 td.Triggers.Add(trigger);
-
+            
                 string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-                td.Actions.Add(new ExecAction(exePath, "Autostart", null));
+                string workingDirectory = Path.GetDirectoryName(exePath) ?? AppDomain.CurrentDomain.BaseDirectory;
+
+                exePath = exePath.Replace(".dll", ".exe");
+                string batPath = Path.Combine(Path.GetDirectoryName(exePath) ?? AppDomain.CurrentDomain.BaseDirectory, "RunAutostart.bat");
+
+                string batContent = $"@echo off\r\n\"{exePath}\" Autostart\r\n";
+
+                File.WriteAllText(batPath, batContent, new UTF8Encoding(false));
+
+                td.Actions.Add(new ExecAction(batPath, null, workingDirectory));
                 ts.RootFolder.RegisterTaskDefinition(_autostartTaskName, td);
 
                 JsonHelper.WriteToJson(PathToAutostartOptions, autostartOptions);
