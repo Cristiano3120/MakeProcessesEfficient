@@ -94,12 +94,15 @@ namespace MakeProcessesEfficient
             Console.WriteLine("\nCurrent processes in JSON file:");
             for (int i = 0; i < jsonObject.Length; i++)
             {
-                Console.WriteLine($"{i + 1}. {jsonObject[i].Name}" +
-                    $" [Memory priority:{jsonObject[i].Value.GetProperty("MemoryPriority").GetInt16()}]" +
-                    $" [EfficiencyMode: {jsonObject[i].Value.GetProperty("EfficiencyMode").GetBoolean()}]");
-            }
-            Console.WriteLine();
+                short memoryPriority = jsonObject[i].Value.GetProperty("MemoryPriority").GetInt16();
+                bool efficiencyMode = jsonObject[i].Value.GetProperty("EfficiencyMode").GetBoolean();
 
+                Console.WriteLine($"{i + 1}. {jsonObject[i].Name}" +
+                    $" [Memory priority: {(MemoryPriority)memoryPriority}({memoryPriority})]" +
+                    $" [EfficiencyMode: {efficiencyMode}]");
+            }
+
+            Console.WriteLine();
             return jsonObject;
         }
 
